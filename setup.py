@@ -33,9 +33,4 @@ setup(
         "Programming Language :: Python :: 3.12",
         "Topic :: Multimedia :: Graphics :: Graphics Conversion",
     ],
-    entry_points={
-        "console_scripts": [
-            "imp=imp:main",
-        ],
-    },
 )
