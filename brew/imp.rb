@@ -4,7 +4,7 @@ class Imp < Formula
   desc "IMP - Image Optimizer CLI Tool"
   homepage "https://github.com/SamSeenX/imp-cli"
   url "https://github.com/SamSeenX/imp-cli/archive/refs/tags/v1.0.0.tar.gz"
-  sha256 "PLACEHOLDER_SHA256"
+  sha256 "e106c9420489f4174b0480537e73690c24c024a305adad3f704f0d37a9341c3c"
   license "MIT"
 
   depends_on "python@3.11"
