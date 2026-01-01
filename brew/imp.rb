@@ -3,51 +3,45 @@ class Imp < Formula
 
   desc "IMP - Image Optimizer CLI Tool"
   homepage "https://github.com/SamSeenX/imp-cli"
-  url "https://github.com/SamSeenX/imp-cli/archive/refs/tags/v1.0.0.tar.gz"
-  sha256 "e106c9420489f4174b0480537e73690c24c024a305adad3f704f0d37a9341c3c"
+  url "https://github.com/SamSeenX/imp-cli/archive/refs/tags/v1.0.1.tar.gz"
+  sha256 "d048cb1eba4f6e63b8e65520c417947268a2c7501f006596520306ca7534f138"
   license "MIT"
 
   depends_on "python@3.11"
+  depends_on "jpeg"
+  depends_on "libtiff"
+  depends_on "little-cms2"
+  depends_on "webp"
+  depends_on "zlib"
 
-  # Dependencies - using PyPI sources for proper installation
   resource "pillow" do
-    url "https://files.pythonhosted.org/packages/source/p/Pillow/Pillow-10.2.0.tar.gz"
-    sha256 "e935e5f5d9e42c13c72c1ffe839a1e2f5a956c4a3d2b2a6e9e4827ac9d16f3cd"
+    url "https://files.pythonhosted.org/packages/f3/af/c097e544e7bd278333db77933e535098c259609c4eb3b85381109602fb5b/pillow-11.1.0.tar.gz"
+    sha256 "368da70808b36d73b4b390a8ffac11069f8a5c85f29eff1f1b01bcf3ef5b2a20"
   end
 
   resource "rich" do
-    url "https://files.pythonhosted.org/packages/11/23/814edf09ec6470d52022b9e95c23c1bef77f0bc451761e1a4f87cc76a3f7/rich-13.7.0.tar.gz"
-    sha256 "5cb5a32fd0f8a5e2f6e7b1b1fa58cb97c1d7c5b7c85e5e5b5d5d5e5e5e5e5e5e5"
+    url "https://files.pythonhosted.org/packages/fb/d2/8920e102050a0de7bfabeb4c4614a49248cf8d5d7a8d01885fbb24dc767a/rich-14.2.0.tar.gz"
+    sha256 "73ff50c7c0c1c77c8243079283f4edb376f0f6442433aecb8ce7e6d0b92d1fe4"
   end
 
   resource "markdown-it-py" do
-    url "https://files.pythonhosted.org/packages/38/71/3b932df36c1a044d397a1f92d1cf91ee0a503d91e470cbd670aa66b07ed0/markdown-it-py-3.0.0.tar.gz"
-    sha256 "e3f60a94fa066dc52ec76661e37c851cb232d92f9886b15cb560aaada2df8feb"
+    url "https://files.pythonhosted.org/packages/5b/f5/4ec618ed16cc4f8fb3b701563655a69816155e79e24a17b651541804721d/markdown_it_py-4.0.0.tar.gz"
+    sha256 "cb0a2b4aa34f932c007117b194e945bd74e0ec24133ceb5bac59009cda1cb9f3"
   end
 
   resource "mdurl" do
-    url "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3ead5f90e64e89dab15ae08aac77f6c4f18/mdurl-0.1.2.tar.gz"
+    url "https://files.pythonhosted.org/packages/d6/54/cfe61301667036ec958cb99bd3efefba235e65cdeb9c84d24a8293ba1d90/mdurl-0.1.2.tar.gz"
     sha256 "bb413d29f5eea38f31dd4754dd7377d4465116fb207585f97bf925588687c1ba"
   end
 
   resource "pygments" do
-    url "https://files.pythonhosted.org/packages/55/59/8bccf4157baf25e4aa5a0bb7fa3ba8600907de105d10cc9e0f27ec3e5c8c/Pygments-2.17.2.tar.gz"
-    sha256 "da46cec9fd2de5be3a8a784f434e4c4ab670b4ff54d605c4c2717e9d49c4c367"
+    url "https://files.pythonhosted.org/packages/b0/77/a5b8c569bf593b0140bde72ea885a803b82086995367bf2037de0159d924/pygments-2.19.2.tar.gz"
+    sha256 "636cb2477cec7f8952536970bc533bc43743542f70392ae026374600add5b887"
   end
 
   def install
-    virtualenv_create(libexec, "python3.11")
+    virtualenv_install_with_resources
     
-    # Install dependencies
-    resource("pillow").stage { system libexec/"bin/python", "-m", "pip", "install", "." }
-    resource("rich").stage { system libexec/"bin/python", "-m", "pip", "install", "." }
-    resource("markdown-it-py").stage { system libexec/"bin/python", "-m", "pip", "install", "." }
-    resource("mdurl").stage { system libexec/"bin/python", "-m", "pip", "install", "." }
-    resource("pygments").stage { system libexec/"bin/python", "-m", "pip", "install", "." }
-
-    # Install the main package
-    system libexec/"bin/python", "-m", "pip", "install", ".", "--no-deps", "--ignore-installed"
-
     # Link the script
     bin.install_symlink libexec/"bin/imp"
   end
