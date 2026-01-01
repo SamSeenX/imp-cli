@@ -1,0 +1,669 @@
+#!/usr/bin/env python3
+import os
+import sys
+import argparse
+import shutil
+import time
+from PIL import Image
+
+# Rich imports
+from rich.console import Console
+from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn, TimeRemainingColumn, TaskID
+from rich.panel import Panel
+from rich.text import Text
+from rich.table import Table
+from rich import box
+
+console = Console()
+
+SUPPORTED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff'}
+
+def format_size(size):
+    """Formats bytes into human readable string."""
+    for unit in ['B', 'KB', 'MB', 'GB']:
+        if size < 1024:
+            return f"{size:.2f} {unit}"
+        size /= 1024
+    return f"{size:.2f} TB"
+
+def get_image_files(targets, recursive=True):
+    """
+    Scans targets (files or directories) and returns a list of valid image file paths.
+    Ignores 'originals' and 'optimized' directories.
+    Returns: (image_files, skipped_count)
+    """
+    image_files = []
+    skipped_count = 0
+    ignored_dirs = {'originals', 'optimized'}
+    
+    for target in targets:
+        target = os.path.abspath(target)
+        if os.path.isfile(target):
+            _, ext = os.path.splitext(target)
+            if ext.lower() in SUPPORTED_EXTENSIONS:
+                image_files.append(target)
+            else:
+                skipped_count += 1
+        elif os.path.isdir(target):
+            if recursive:
+                for root, dirs, filenames in os.walk(target):
+                    # Modify dirs in-place to skip ignored directories
+                    dirs[:] = [d for d in dirs if d not in ignored_dirs]
+                    
+                    for filename in filenames:
+                        file_path = os.path.join(root, filename)
+                        _, ext = os.path.splitext(file_path)
+                        if ext.lower() in SUPPORTED_EXTENSIONS:
+                            image_files.append(file_path)
+                        elif not filename.startswith('.'):  # Skip hidden files
+                            skipped_count += 1
+            else:
+                # Non-recursive: only process files in the top-level directory
+                for filename in os.listdir(target):
+                    file_path = os.path.join(target, filename)
+                    if os.path.isfile(file_path):
+                        _, ext = os.path.splitext(file_path)
+                        if ext.lower() in SUPPORTED_EXTENSIONS:
+                            image_files.append(file_path)
+                        elif not filename.startswith('.'):  # Skip hidden files
+                            skipped_count += 1
+    
+    # Sort files by last modification time
+    image_files.sort(key=lambda x: os.path.getmtime(x))
+    
+    return image_files, skipped_count
+
+def simulate_compression(file_path, args):
+    """
+    Simulates compression of a single image to estimate the output size.
+    Does NOT modify any files. Returns estimated metrics.
+    Returns: (success, original_size, estimated_size, output_filename, dimensions)
+    """
+    try:
+        directory, filename = os.path.split(file_path)
+        name, ext = os.path.splitext(filename)
+        
+        # Determine output format
+        if args.webp:
+            output_ext = '.webp'
+        else:
+            output_ext = '.jpg'
+        
+        output_filename = f"{name}{output_ext}"
+        original_size = os.path.getsize(file_path)
+        
+        # Open image to get dimensions and estimate size
+        with Image.open(file_path) as img:
+            width, height = img.size
+            new_width, new_height = width, height
+            
+            # Calculate new dimensions if resize is requested
+            if args.resize:
+                max_dim = args.resize
+                if width > max_dim or height > max_dim:
+                    ratio = min(max_dim / width, max_dim / height)
+                    new_width = int(width * ratio)
+                    new_height = int(height * ratio)
+            
+            # Estimate compressed size based on format and quality
+            # These are rough estimates based on typical compression ratios
+            pixel_count = new_width * new_height
+            
+            if args.webp:
+                # WebP is typically very efficient
+                bytes_per_pixel = 0.15 * (args.quality / 100)
+            else:
+                # JPEG compression estimate
+                bytes_per_pixel = 0.25 * (args.quality / 100)
+            
+            estimated_size = int(pixel_count * bytes_per_pixel)
+            
+            # Don't estimate larger than original
+            estimated_size = min(estimated_size, original_size)
+            
+            dimensions = f"{width}x{height}"
+            if args.resize and (width > args.resize or height > args.resize):
+                dimensions = f"{width}x{height} → {new_width}x{new_height}"
+        
+        return True, original_size, estimated_size, output_filename, dimensions
+        
+    except Exception as e:
+        return False, 0, 0, os.path.basename(file_path), f"Error: {e}"
+
+def compress_image(file_path, args, base_dir=None):
+    """
+    Compresses a single image based on args.
+    Moves the original file to an 'originals' folder and saves the new one in place.
+    
+    Backup modes:
+    - Default (base_dir set, not distributed): Central originals folder with mirrored structure
+    - Distributed (args.rd): Each folder gets its own originals subfolder
+    
+    Returns: (success, original_size, compressed_size, message)
+    """
+    try:
+        # Get directory and filename
+        directory, filename = os.path.split(file_path)
+        name, ext = os.path.splitext(filename)
+        
+        # Determine output format
+        if args.webp:
+            output_ext = '.webp'
+            save_format = 'WEBP'
+        else:
+            output_ext = '.jpg'
+            save_format = 'JPEG'
+
+        output_filename = f"{name}{output_ext}"
+        final_output_path = os.path.join(directory, output_filename)
+
+        # Get original size
+        original_size = os.path.getsize(file_path)
+
+        # Open image and process in memory
+        with Image.open(file_path) as img:
+            # Handle RGBA to RGB conversion for JPEG
+            if output_ext in ['.jpg', '.jpeg'] and img.mode == 'RGBA':
+                img = img.convert('RGB')
+
+            # Resize if requested
+            if args.resize:
+                max_dim = args.resize
+                width, height = img.size
+                if width > max_dim or height > max_dim:
+                    ratio = min(max_dim / width, max_dim / height)
+                    new_size = (int(width * ratio), int(height * ratio))
+                    img = img.resize(new_size, Image.Resampling.LANCZOS)
+
+            # Compression settings
+            save_args = {}
+            if save_format == 'WEBP':
+                save_args = {'quality': args.quality, 'method': 6}
+            elif output_ext in ['.jpg', '.jpeg']:
+                save_args = {'quality': args.quality, 'optimize': True, 'progressive': True}
+            elif output_ext == '.png':
+                save_args = {'optimize': True}
+
+            # Save to a temporary file first to avoid overwriting/data loss issues during save
+            temp_output_path = os.path.join(directory, f".tmp_{output_filename}")
+            img.save(temp_output_path, format=save_format, **save_args)
+
+        # Calculate compressed size from temp file
+        compressed_size = os.path.getsize(temp_output_path)
+        
+        # Check if savings are negligible (less than 1% AND less than 10KB)
+        savings = original_size - compressed_size
+        savings_percent = (savings / original_size * 100) if original_size > 0 else 0
+        
+        if savings_percent < 1 and savings < 10240:  # Less than 1% AND less than 10KB
+            # Remove temp file and skip - image is already optimized
+            os.remove(temp_output_path)
+            return 'skipped', original_size, original_size, f"{os.path.basename(file_path)} (already optimized)"
+        
+        # Prepare backup directory (only if we're actually going to process)
+        if args.rd:
+            # Distributed mode: originals folder in each directory
+            backup_dir = os.path.join(directory, "originals")
+            backup_path = os.path.join(backup_dir, filename)
+        else:
+            # Default mode: central originals folder with mirrored structure
+            if base_dir:
+                # Calculate relative path from base directory
+                rel_path = os.path.relpath(directory, base_dir)
+                backup_dir = os.path.join(base_dir, "originals", rel_path)
+                backup_path = os.path.join(backup_dir, filename)
+            else:
+                # Single file or no base dir - use same directory
+                backup_dir = os.path.join(directory, "originals")
+                backup_path = os.path.join(backup_dir, filename)
+        
+        if not os.path.exists(backup_dir):
+            os.makedirs(backup_dir)
+
+        # Move original to backup
+        # Handle case where backup file already exists (overwrite or skip? Overwrite for now to keep it simple/latest)
+        if os.path.exists(backup_path):
+            os.remove(backup_path) 
+        shutil.move(file_path, backup_path)
+
+        # Rename temp file to final destination
+        if os.path.exists(final_output_path):
+             os.remove(final_output_path) # Should be gone if it was the same name, but good for safety if names differ
+        os.rename(temp_output_path, final_output_path)
+            
+        return True, original_size, compressed_size, output_filename
+
+    except Exception as e:
+        # Clean up temp file if it exists
+        try:
+            temp_path = os.path.join(os.path.split(file_path)[0], f".tmp_{name}{output_ext}") 
+            if os.path.exists(temp_path):
+                os.remove(temp_path)
+        except:
+            pass
+        return False, 0, 0, f"{os.path.basename(file_path)} ({e})"
+
+def find_originals_folders(targets, recursive=True):
+    """
+    Find all 'originals' folders within the given targets.
+    Returns a list of absolute paths to originals folders.
+    """
+    originals_folders = []
+    
+    for target in targets:
+        target = os.path.abspath(target)
+        if os.path.isdir(target):
+            if recursive:
+                for root, dirs, _ in os.walk(target):
+                    if 'originals' in dirs:
+                        originals_folders.append(os.path.join(root, 'originals'))
+            else:
+                originals_path = os.path.join(target, 'originals')
+                if os.path.isdir(originals_path):
+                    originals_folders.append(originals_path)
+    
+    return originals_folders
+
+def restore_originals(originals_folders):
+    """
+    Restore files from originals folders back to their original locations.
+    Uses shutil for cross-platform compatibility.
+    Returns: (files_restored, folders_cleaned, errors)
+    """
+    files_restored = 0
+    folders_cleaned = 0
+    errors = []
+    
+    for orig_folder in originals_folders:
+        parent_dir = os.path.dirname(orig_folder)
+        
+        try:
+            # Walk through the originals folder and copy everything back
+            for root, dirs, files in os.walk(orig_folder):
+                # Calculate relative path from originals folder
+                rel_path = os.path.relpath(root, orig_folder)
+                
+                # Determine destination directory
+                if rel_path == '.':
+                    dest_dir = parent_dir
+                else:
+                    dest_dir = os.path.join(parent_dir, rel_path)
+                
+                # Create destination directory if needed
+                if not os.path.exists(dest_dir):
+                    os.makedirs(dest_dir)
+                
+                # Move each file
+                for file in files:
+                    src_file = os.path.join(root, file)
+                    dest_file = os.path.join(dest_dir, file)
+                    
+                    # Remove existing file if present (the optimized version)
+                    if os.path.exists(dest_file):
+                        os.remove(dest_file)
+                    
+                    shutil.move(src_file, dest_file)
+                    files_restored += 1
+            
+            # Remove the now-empty originals folder
+            shutil.rmtree(orig_folder)
+            folders_cleaned += 1
+            
+        except Exception as e:
+            errors.append(f"{orig_folder}: {e}")
+    
+    return files_restored, folders_cleaned, errors
+
+def backup_originals(originals_folders, dest_path):
+    """
+    Move originals folders to a backup destination.
+    Returns: (folders_moved, total_size, errors)
+    """
+    folders_moved = 0
+    total_size = 0
+    errors = []
+    
+    # Create destination if it doesn't exist
+    if not os.path.exists(dest_path):
+        os.makedirs(dest_path)
+    
+    for orig_folder in originals_folders:
+        try:
+            # Calculate size
+            for root, dirs, files in os.walk(orig_folder):
+                for file in files:
+                    total_size += os.path.getsize(os.path.join(root, file))
+            
+            # Generate unique folder name for backup
+            folder_name = f"originals_{os.path.basename(os.path.dirname(orig_folder))}"
+            dest_folder = os.path.join(dest_path, folder_name)
+            
+            # Handle duplicate names
+            counter = 1
+            while os.path.exists(dest_folder):
+                dest_folder = os.path.join(dest_path, f"{folder_name}_{counter}")
+                counter += 1
+            
+            shutil.move(orig_folder, dest_folder)
+            folders_moved += 1
+            
+        except Exception as e:
+            errors.append(f"{orig_folder}: {e}")
+    
+    return folders_moved, total_size, errors
+
+def clean_originals(originals_folders):
+    """
+    Delete all originals folders permanently.
+    Returns: (folders_deleted, space_freed, errors)
+    """
+    folders_deleted = 0
+    space_freed = 0
+    errors = []
+    
+    for orig_folder in originals_folders:
+        try:
+            # Calculate size before deletion
+            for root, dirs, files in os.walk(orig_folder):
+                for file in files:
+                    space_freed += os.path.getsize(os.path.join(root, file))
+            
+            shutil.rmtree(orig_folder)
+            folders_deleted += 1
+            
+        except Exception as e:
+            errors.append(f"{orig_folder}: {e}")
+    
+    return folders_deleted, space_freed, errors
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Optimize images by converting to JPG/WebP, resizing, and adjusting quality.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  ./imp image.png                # Convert to JPG at 69% quality
+  ./imp folder/ --quality 50     # Process folder at 50% quality
+  ./imp . --webp --resize 1080   # Convert all to WebP, max 1080px
+  ./imp . --nr                   # Process only top-level folder (non-recursive)
+  ./imp . --rd                   # Originals in each subfolder (distributed)
+
+Manage originals:
+  ./imp folder/ --restore        # Undo: restore original files
+  ./imp folder/ --backup ~/bak   # Move originals to backup location
+  ./imp folder/ --clean          # Delete originals to free space
+        """
+    )
+    parser.add_argument("targets", nargs='+', help="Files or folders to process")
+    parser.add_argument("--quality", type=int, default=69, help="Image quality (1-100), default 69")
+    parser.add_argument("--resize", type=int, help="Max width/height in pixels (e.g. 1920)")
+    parser.add_argument("--webp", action="store_true", help="Convert all images to WebP format (overrides JPG default)")
+    parser.add_argument("--pre", action="store_true", help="Preview changes without modifying any files")
+    parser.add_argument("--nr", action="store_true", help="Non-recursive: only process files in the top-level folder")
+    parser.add_argument("--rd", action="store_true", help="Recursive distributed: place originals folder in each subfolder")
+    
+    # Originals management flags
+    parser.add_argument("--restore", action="store_true", help="Restore original files and remove originals folders")
+    parser.add_argument("--backup", metavar="DEST", help="Move originals folders to specified backup location")
+    parser.add_argument("--clean", action="store_true", help="Delete all originals folders to free up space")
+    
+    args = parser.parse_args()
+    
+    console.print(Panel.fit("[bold blue]IMP - Image Optimizer[/bold blue]", border_style="blue"))
+
+    # Determine if recursive
+    recursive = not args.nr
+    
+    # Handle originals management operations
+    if args.restore or args.backup or args.clean:
+        with console.status("[bold green]Scanning for originals folders...[/bold green]", spinner="dots"):
+            originals_folders = find_originals_folders(args.targets, recursive=recursive)
+        
+        if not originals_folders:
+            console.print("[yellow]No originals folders found.[/yellow]")
+            sys.exit(0)
+        
+        console.print(f"[green]Found [bold]{len(originals_folders)}[/bold] originals folder(s).[/green]")
+        
+        if args.restore:
+            console.print("[cyan]Restoring original files...[/cyan]")
+            files_restored, folders_cleaned, errors = restore_originals(originals_folders)
+            
+            if errors:
+                for err in errors:
+                    console.print(f"[red]Error:[/red] {err}")
+            
+            table = Table(box=box.SIMPLE)
+            table.add_column("Metric", style="cyan")
+            table.add_column("Value", style="magenta")
+            table.add_row("Files Restored", str(files_restored))
+            table.add_row("Folders Cleaned", str(folders_cleaned))
+            console.print(Panel(table, title="[bold green]Restore Complete[/bold green]", border_style="green"))
+            
+        elif args.backup:
+            dest_path = os.path.abspath(args.backup)
+            console.print(f"[cyan]Moving originals to [bold]{dest_path}[/bold]...[/cyan]")
+            folders_moved, total_size, errors = backup_originals(originals_folders, dest_path)
+            
+            if errors:
+                for err in errors:
+                    console.print(f"[red]Error:[/red] {err}")
+            
+            table = Table(box=box.SIMPLE)
+            table.add_column("Metric", style="cyan")
+            table.add_column("Value", style="magenta")
+            table.add_row("Folders Moved", str(folders_moved))
+            table.add_row("Total Size", format_size(total_size))
+            table.add_row("Backup Location", dest_path)
+            console.print(Panel(table, title="[bold green]Backup Complete[/bold green]", border_style="green"))
+            
+        elif args.clean:
+            console.print("[cyan]Deleting originals folders...[/cyan]")
+            folders_deleted, space_freed, errors = clean_originals(originals_folders)
+            
+            if errors:
+                for err in errors:
+                    console.print(f"[red]Error:[/red] {err}")
+            
+            table = Table(box=box.SIMPLE)
+            table.add_column("Metric", style="cyan")
+            table.add_column("Value", style="magenta")
+            table.add_row("Folders Deleted", str(folders_deleted))
+            table.add_row("Space Freed", f"[bold green]{format_size(space_freed)}[/bold green]")
+            console.print(Panel(table, title="[bold green]Cleanup Complete[/bold green]", border_style="green"))
+        
+        sys.exit(0)
+    
+    # Normal image processing flow
+    with console.status("[bold green]Scanning for images...[/bold green]", spinner="dots"):
+        files_to_process, skipped_count = get_image_files(args.targets, recursive=recursive)
+        # Determine base directory for centralized originals
+        base_dir = None
+        if len(args.targets) == 1 and os.path.isdir(args.targets[0]):
+            base_dir = os.path.abspath(args.targets[0])
+
+    total_files = len(files_to_process)
+
+    if total_files == 0:
+        console.print("[yellow]No supported images found.[/yellow]")
+        if skipped_count > 0:
+            console.print(f"[dim]({skipped_count} non-image files skipped)[/dim]")
+        sys.exit(0)
+
+    # Show mode info
+    mode_info = []
+    if args.nr:
+        mode_info.append("non-recursive")
+    elif args.rd:
+        mode_info.append("distributed originals")
+    else:
+        mode_info.append("centralized originals")
+    mode_str = f" [dim]({', '.join(mode_info)})[/dim]" if mode_info else ""
+    
+    if args.pre:
+        console.print(f"[yellow]🔍 PREVIEW:[/yellow] Found [bold]{total_files}[/bold] images.{mode_str}")
+    else:
+        console.print(f"[green]Found [bold]{total_files}[/bold] images. Starting optimization...{mode_str}[/green]")
+    
+    if skipped_count > 0:
+        console.print(f"[dim]({skipped_count} non-image files skipped)[/dim]")
+    
+    settings_text = f"Quality: [bold]{args.quality}[/bold] | Resize: [bold]{args.resize or 'Original'}[/bold] | WebP: [bold]{args.webp}[/bold]"
+    console.print(settings_text)
+    console.print()
+    
+    # Dry-run mode: preview changes without modifying files
+    if args.pre:
+        preview_table = Table(box=box.ROUNDED, title="[bold yellow]Preview of Changes[/bold yellow]")
+        preview_table.add_column("#", style="dim", width=4)
+        preview_table.add_column("File", style="cyan", max_width=40)
+        preview_table.add_column("Dimensions", style="blue")
+        preview_table.add_column("Current", style="red")
+        preview_table.add_column("Est. After", style="green")
+        preview_table.add_column("Est. Savings", style="magenta")
+        
+        total_orig_size = 0
+        total_est_size = 0
+        
+        with console.status("[bold green]Analyzing images...[/bold green]", spinner="dots"):
+            for idx, file_path in enumerate(files_to_process, 1):
+                success, orig_size, est_size, output_name, dimensions = simulate_compression(file_path, args)
+                
+                if success:
+                    total_orig_size += orig_size
+                    total_est_size += est_size
+                    savings = orig_size - est_size
+                    savings_pct = (savings / orig_size * 100) if orig_size > 0 else 0
+                    
+                    # Truncate filename if too long
+                    display_name = output_name if len(output_name) <= 40 else output_name[:37] + "..."
+                    
+                    preview_table.add_row(
+                        str(idx),
+                        display_name,
+                        dimensions,
+                        format_size(orig_size),
+                        format_size(est_size),
+                        f"{format_size(savings)} ({savings_pct:.1f}%)"
+                    )
+        
+        console.print(preview_table)
+        console.print()
+        
+        # Summary for dry-run
+        total_savings = total_orig_size - total_est_size
+        total_savings_pct = (total_savings / total_orig_size * 100) if total_orig_size > 0 else 0
+        
+        summary_table = Table(box=box.SIMPLE)
+        summary_table.add_column("Metric", style="cyan")
+        summary_table.add_column("Value", style="magenta")
+        
+        summary_table.add_row("Images to Process", str(total_files))
+        if skipped_count > 0:
+            summary_table.add_row("Files Skipped", f"[dim]{skipped_count} (non-image)[/dim]")
+        summary_table.add_row("Current Total Size", format_size(total_orig_size))
+        summary_table.add_row("Estimated Size After", format_size(total_est_size))
+        summary_table.add_row("Estimated Savings", f"[bold green]{format_size(total_savings)} ({total_savings_pct:.1f}%)[/bold green]")
+        
+        console.print(Panel(summary_table, title="[bold yellow]Dry Run Summary[/bold yellow]", border_style="yellow"))
+        console.print()
+        console.print("[dim italic]⚠️  These are rough estimates. Actual results may vary depending on image content.[/dim italic]")
+        console.print("[dim]Run without --pre to apply these changes.[/dim]")
+        sys.exit(0)
+
+    total_orig_size = 0
+    total_comp_size = 0
+    successful_count = 0
+    optimized_skipped = 0  # Already optimized images
+
+    # Rich Progress Bar
+    progress = Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeRemainingColumn(),
+        console=console
+    )
+
+    with progress:
+        task_id = progress.add_task("[cyan]Processing...", total=total_files)
+        
+        for file_path in files_to_process:
+            filename = os.path.basename(file_path)
+            short_name = (filename[:30] + '..') if len(filename) > 30 else filename
+            progress.update(task_id, description=f"[cyan]Processing {short_name}[/cyan]")
+
+            result, orig_size, comp_size, msg = compress_image(file_path, args, base_dir=base_dir)
+            
+            if result == True:
+                successful_count += 1
+                total_orig_size += orig_size
+                total_comp_size += comp_size
+            elif result == 'skipped':
+                optimized_skipped += 1
+            else:
+                console.print(f"[red]Error:[/red] {msg}") 
+            
+            progress.advance(task_id)
+
+    console.print()
+    
+    if successful_count > 0 or optimized_skipped > 0:
+        if successful_count > 0:
+            saved_size = total_orig_size - total_comp_size
+            saved_percent = (saved_size / total_orig_size) * 100 if total_orig_size > 0 else 0
+        else:
+            saved_size = 0
+            saved_percent = 0
+        
+        # Summary Table
+        table = Table(box=box.SIMPLE)
+        table.add_column("Metric", style="cyan")
+        table.add_column("Value", style="magenta")
+        
+        table.add_row("Images Optimized", f"{successful_count}/{total_files}")
+        if optimized_skipped > 0:
+            table.add_row("Already Optimized", f"[dim]{optimized_skipped} (skipped)[/dim]")
+        if skipped_count > 0:
+            table.add_row("Non-Image Files", f"[dim]{skipped_count} (skipped)[/dim]")
+        if successful_count > 0:
+            table.add_row("Total Size Before", format_size(total_orig_size))
+            table.add_row("Total Size After", format_size(total_comp_size))
+            table.add_row("Space Saved", f"[bold green]{format_size(saved_size)} ({saved_percent:.2f}%)[/bold green]")
+        
+        console.print(Panel(table, title="[bold]Optimization Complete[/bold]", border_style="green"))
+        
+        # Only show tips if files were actually backed up
+        if successful_count > 0:
+            # Show helpful tips about originals using built-in flags
+            # Determine the path for display
+            if base_dir:
+                path_display = base_dir
+            else:
+                path_display = os.path.abspath(args.targets[0]) if len(args.targets) == 1 else args.targets[0]
+            
+            console.print()
+            console.print(f"[dim]💡 Your original files are safely backed up in [cyan]{path_display}/originals/[/cyan][/dim]")
+            console.print()
+            
+            # Show built-in commands (cross-platform)
+            console.print("[dim]   • Want to undo? Restore originals:[/dim]")
+            console.print(f"     [cyan]imp \"{path_display}\" --restore[/cyan]")
+            console.print()
+            
+            console.print("[dim]   • Move originals to a backup location:[/dim]")
+            console.print(f"     [cyan]imp \"{path_display}\" --backup [yellow]<dest>[/yellow][/cyan]")
+            console.print()
+            
+            console.print("[dim]   • Happy with results? Delete originals to free space:[/dim]")
+            console.print(f"     [cyan]imp \"{path_display}\" --clean[/cyan]")
+        elif optimized_skipped > 0:
+            console.print()
+            console.print("[dim]✨ All images are already optimized! No changes needed.[/dim]")
+
+    else:
+        console.print(Panel("[bold red]No images were successfully processed.[/bold red]", border_style="red"))
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IMP by SamSeen - Image Manipulation & Optimization CLI</title>
+    <meta name="description"
+        content="Lightweight CLI tool for batch image optimization. Convert to WebP, resize, compress - all with one command.">
+    <meta name="keywords" content="image optimization, CLI, WebP, compression, batch processing, Python">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="IMP by SamSeen - Image Manipulation & Optimization CLI">
+    <meta property="og:description"
+        content="Lightweight CLI tool for batch image optimization. Convert to WebP, resize, compress - all with one command.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://imp-cli.samseen.dev/">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+    <!-- Glow Effects -->
+    <div class="glow glow-top-left"></div>
+    <div class="glow glow-bottom-right"></div>
+
+    <!-- Header -->
+    <header class="header">
+        <a href="/" class="logo">
+            <img src="favicon.svg" alt="IMP" class="logo-icon">
+            <span class="logo-text">IMP</span>
+            <span class="logo-author">by SamSeen</span>
+        </a>
+        <nav class="nav">
+            <a href="#features">Features</a>
+            <a href="#install">Install</a>
+            <a href="https://github.com/SamSeenX/imp-cli" target="_blank">GitHub</a>
+        </nav>
+        <a href="https://github.com/SamSeenX/imp-cli" target="_blank" class="btn btn-github">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path
+                    d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z" />
+            </svg>
+            GitHub
+        </a>
+    </header>
+
+    <!-- Hero Section -->
+    <main>
+        <section class="hero">
+            <h1>
+                Optimize your images<br>
+                <span class="gradient-text">Like a Developer</span>
+            </h1>
+            <p class="hero-subtitle">
+                Lightweight CLI tool for batch image optimization. Convert to WebP, resize, compress - all with one
+                command. Cross-platform and non-destructive.
+            </p>
+
+            <!-- Install Tabs -->
+            <div class="install-box" id="install">
+                <div class="install-tabs">
+                    <button class="tab active" data-tab="pip">pip</button>
+                    <button class="tab" data-tab="git">Git</button>
+                    <button class="tab" data-tab="manual">Manual</button>
+                </div>
+                <div class="install-content">
+                    <div class="tab-panel active" id="pip">
+                        <pre><code><span class="prompt">$</span> pip install pillow tqdm rich
+<span class="prompt">$</span> git clone https://github.com/SamSeenX/imp-cli.git
+<span class="prompt">$</span> cd imp-cli && chmod +x imp
+<span class="prompt">$</span> ./imp ./photos --webp</code></pre>
+                    </div>
+                    <div class="tab-panel" id="git">
+                        <pre><code><span class="prompt">$</span> git clone https://github.com/SamSeenX/imp-cli.git
+<span class="prompt">$</span> cd imp-cli
+<span class="prompt">$</span> pip install -r requirements.txt
+<span class="prompt">$</span> python imp ./photos</code></pre>
+                    </div>
+                    <div class="tab-panel" id="manual">
+                        <pre><code><span class="comment"># Download from GitHub releases</span>
+<span class="prompt">$</span> curl -L https://github.com/SamSeenX/imp-cli/archive/main.zip -o imp.zip
+<span class="prompt">$</span> unzip imp.zip && cd imp-cli-main
+<span class="prompt">$</span> pip install -r requirements.txt</code></pre>
+                    </div>
+                </div>
+            </div>
+
+            <a href="https://github.com/SamSeenX/imp-cli" target="_blank" class="link-arrow">
+                View full installation instructions on GitHub →
+            </a>
+        </section>
+
+        <!-- Features Section -->
+        <section class="features" id="features">
+            <h2>Powerful Features. <span class="gradient-text">Zero Bloat.</span></h2>
+            <p class="features-subtitle">Everything you need to optimize images efficiently.</p>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎨</div>
+                    <h3>Smart Compression</h3>
+                    <p>Efficiently compresses JPG and PNG files. Convert to WebP for up to 80% smaller files with one
+                        flag.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📐</div>
+                    <h3>Intelligent Resizing</h3>
+                    <p>Resize images to specific dimensions while preserving aspect ratio. Perfect for web optimization.
+                    </p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">📂</div>
+                    <h3>Batch Processing</h3>
+                    <p>Recursively scans directories to process thousands of images in one go. Visual progress tracking
+                        included.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">🛡️</div>
+                    <h3>Non-Destructive</h3>
+                    <p>Automatically backs up originals. Restore, backup, or clean with built-in cross-platform
+                        commands.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">👁️</div>
+                    <h3>Preview Mode</h3>
+                    <p>Use <code>--pre</code> to preview changes and estimated savings without modifying any files.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">💻</div>
+                    <h3>Cross-Platform</h3>
+                    <p>Works on macOS, Linux, and Windows. Pure Python with minimal dependencies.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Usage Section -->
+        <section class="usage">
+            <h2>Simple & Intuitive</h2>
+            <div class="usage-examples">
+                <div class="usage-card">
+                    <h4>Basic Optimization</h4>
+                    <pre><code>imp ./photos</code></pre>
+                </div>
+                <div class="usage-card">
+                    <h4>Convert to WebP</h4>
+                    <pre><code>imp ./gallery --webp</code></pre>
+                </div>
+                <div class="usage-card">
+                    <h4>Resize for Web</h4>
+                    <pre><code>imp ./assets --resize 1920</code></pre>
+                </div>
+                <div class="usage-card">
+                    <h4>Preview Changes</h4>
+                    <pre><code>imp ./images --pre</code></pre>
+                </div>
+                <div class="usage-card">
+                    <h4>Restore Originals</h4>
+                    <pre><code>imp ./photos --restore</code></pre>
+                </div>
+                <div class="usage-card">
+                    <h4>Full Options</h4>
+                    <pre><code>imp . --webp --resize 1080 --quality 75</code></pre>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>© 2026 IMP. Open Source Software.</p>
+        <p>Made with ❤️ by <a href="https://buymeacoffee.com/samseen" target="_blank">SamSeen</a></p>
+    </footer>
+
+    <script>
+        // Tab switching
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                const tabId = tab.dataset.tab;
+
+                // Update active tab
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                tab.classList.add('active');
+
+                // Update active panel
+                document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+                document.getElementById(tabId).classList.add('active');
+            });
+        });
+
+        // Smooth scroll for anchor links
+        document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+            anchor.addEventListener('click', function (e) {
+                e.preventDefault();
+                document.querySelector(this.getAttribute('href')).scrollIntoView({
+                    behavior: 'smooth'
+                });
+            });
+        });
+    </script>
+</body>
+
+</html>
