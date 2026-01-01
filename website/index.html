@@ -7,7 +7,7 @@
     <title>IMP by SamSeen - Image Manipulation & Optimization CLI</title>
     <meta name="description"
         content="Lightweight CLI tool for batch image optimization. Convert to WebP, resize, compress - all with one command.">
-    <meta name="keywords" content="image optimization, CLI, WebP, compression, batch processing, Python">
+    <meta name="keywords" content="image optimization, CLI, WebP, compression, batch processing, Python, Homebrew">
 
     <!-- Open Graph -->
     <meta property="og:title" content="IMP by SamSeen - Image Manipulation & Optimization CLI">
@@ -70,34 +70,35 @@
             <!-- Install Tabs -->
             <div class="install-box" id="install">
                 <div class="install-tabs">
-                    <button class="tab active" data-tab="pip">pip</button>
+                    <button class="tab active" data-tab="brew">Homebrew</button>
+                    <button class="tab" data-tab="pip">pip</button>
                     <button class="tab" data-tab="git">Git</button>
-                    <button class="tab" data-tab="manual">Manual</button>
                 </div>
                 <div class="install-content">
-                    <div class="tab-panel active" id="pip">
-                        <pre><code><span class="prompt">$</span> pip install pillow tqdm rich
-<span class="prompt">$</span> git clone https://github.com/SamSeenX/imp-cli.git
-<span class="prompt">$</span> cd imp-cli && chmod +x imp
-<span class="prompt">$</span> ./imp ./photos --webp</code></pre>
+                    <div class="tab-panel active" id="brew">
+                        <pre><code><span class="comment"># Install with Homebrew (macOS)</span>
+<span class="prompt">$</span> brew install SamSeenX/apps/imp
+
+<span class="comment"># Start optimizing!</span>
+<span class="prompt">$</span> imp ./photos --webp</code></pre>
+                    </div>
+                    <div class="tab-panel" id="pip">
+                        <pre><code><span class="prompt">$</span> git clone https://github.com/SamSeenX/imp-cli.git
+<span class="prompt">$</span> cd imp-cli && pip install -r requirements.txt
+<span class="prompt">$</span> chmod +x imp && sudo cp imp /usr/local/bin/
+<span class="prompt">$</span> imp ./photos --webp</code></pre>
                     </div>
                     <div class="tab-panel" id="git">
                         <pre><code><span class="prompt">$</span> git clone https://github.com/SamSeenX/imp-cli.git
 <span class="prompt">$</span> cd imp-cli
 <span class="prompt">$</span> pip install -r requirements.txt
-<span class="prompt">$</span> python imp ./photos</code></pre>
-                    </div>
-                    <div class="tab-panel" id="manual">
-                        <pre><code><span class="comment"># Download from GitHub releases</span>
-<span class="prompt">$</span> curl -L https://github.com/SamSeenX/imp-cli/archive/main.zip -o imp.zip
-<span class="prompt">$</span> unzip imp.zip && cd imp-cli-main
-<span class="prompt">$</span> pip install -r requirements.txt</code></pre>
+<span class="prompt">$</span> ./imp ./photos</code></pre>
                     </div>
                 </div>
             </div>
 
             <a href="https://github.com/SamSeenX/imp-cli" target="_blank" class="link-arrow">
-                View full installation instructions on GitHub →
+                View full documentation on GitHub →
             </a>
         </section>
 
@@ -142,9 +143,9 @@
                 </div>
 
                 <div class="feature-card">
-                    <div class="feature-icon">💻</div>
-                    <h3>Cross-Platform</h3>
-                    <p>Works on macOS, Linux, and Windows. Pure Python with minimal dependencies.</p>
+                    <div class="feature-icon">🍺</div>
+                    <h3>Easy Installation</h3>
+                    <p>One-line install on macOS with Homebrew. No manual setup or path configuration needed.</p>
                 </div>
             </div>
         </section>
@@ -177,6 +178,21 @@
                     <h4>Full Options</h4>
                     <pre><code>imp . --webp --resize 1080 --quality 75</code></pre>
                 </div>
+            </div>
+        </section>
+
+        <!-- Install CTA Section -->
+        <section class="cta">
+            <h2>Ready to optimize?</h2>
+            <p>Get started with IMP in seconds.</p>
+            <div class="cta-code">
+                <code>brew install SamSeenX/apps/imp</code>
+                <button class="copy-btn" onclick="copyCommand()">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                </button>
             </div>
         </section>
     </main>
@@ -212,6 +228,16 @@
                 });
             });
         });
+
+        // Copy command to clipboard
+        function copyCommand() {
+            navigator.clipboard.writeText('brew install SamSeenX/apps/imp');
+            const btn = document.querySelector('.copy-btn');
+            btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>';
+            setTimeout(() => {
+                btn.innerHTML = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>';
+            }, 2000);
+        }
     </script>
 </body>
 

@@ -2,7 +2,8 @@
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Linux%20%7C%20Windows-blue.svg)]()
-[![Python](https://img.shields.io/badge/Python-3.6+-yellow.svg)]()
+[![Python](https://img.shields.io/badge/Python-3.8+-yellow.svg)]()
+[![Homebrew](https://img.shields.io/badge/Homebrew-Available-orange.svg)](https://github.com/SamSeenX/homebrew-apps)
 
 > A lightweight, high-performance command-line tool for batch image optimization.
 
@@ -24,13 +25,19 @@
 
 ## 🚀 Quick Start
 
-### Prerequisites
-
-- Python 3.6+
-- Pillow (Image processing)
-- tqdm (Progress bars)
-
 ### Installation
+
+#### macOS (Homebrew) - Recommended
+
+The easiest way to install IMP on macOS:
+
+```bash
+brew install SamSeenX/apps/imp
+```
+
+That's it! You can now use `imp` from anywhere in your terminal.
+
+#### pip (All Platforms)
 
 ```bash
 # Clone the repository
@@ -39,21 +46,22 @@ cd imp-cli
 
 # Install dependencies
 pip install -r requirements.txt
-```
 
-#### System-Wide Installation (Recommended)
-
-To use `imp` from anywhere in your terminal:
-
-```bash
-# Make the script executable
+# Make executable and install
 chmod +x imp
-
-# Move or link it to a directory in your PATH
 sudo cp imp /usr/local/bin/imp
 
 # Verify installation
 imp --help
+```
+
+#### Quick Clone & Run
+
+```bash
+git clone https://github.com/SamSeenX/imp-cli.git
+cd imp-cli
+pip install -r requirements.txt
+./imp ./photos
 ```
 
 ### Basic Usage
@@ -153,11 +161,28 @@ imp <path> --clean
 ```
 imp-cli/
 ├── imp               # Main CLI script (Python)
+├── brew/             # Homebrew formula
 ├── requirements.txt  # Python dependencies
+├── setup.py          # Package setup
 ├── assets/           # Demo screenshots
 ├── website/          # Landing page
 ├── LICENSE           # MIT License
 └── README.md
+```
+
+## 🍺 Updating
+
+### Homebrew (macOS)
+
+```bash
+brew update && brew upgrade imp
+```
+
+### Manual Installation
+
+```bash
+cd imp-cli
+git pull origin main
 ```
 
 ## 🗺️ Roadmap
@@ -169,6 +194,7 @@ imp-cli/
 - [x] WebP conversion
 - [x] Smart compression
 - [x] Batch processing
+- [x] Homebrew installation
 
 ## 🤝 Contributing
 
@@ -201,7 +227,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 🙏 Acknowledgments
 
 - [Pillow](https://pillow.readthedocs.io/) - The Python Imaging Library
-- [tqdm](https://github.com/tqdm/tqdm) - Fast, extensible progress bars
+- [Rich](https://rich.readthedocs.io/) - Beautiful terminal output
 
 ## ☕ Support
 
