@@ -3,8 +3,8 @@ class Imp < Formula
 
   desc "IMP - Image Optimizer CLI Tool"
   homepage "https://github.com/SamSeenX/imp-cli"
-  url "https://github.com/SamSeenX/imp-cli/archive/refs/tags/v1.0.1.tar.gz"
-  sha256 "d048cb1eba4f6e63b8e65520c417947268a2c7501f006596520306ca7534f138"
+  url "https://github.com/SamSeenX/imp-cli/archive/refs/tags/v1.0.2.tar.gz"
+  sha256 "71cc9a772a48d86db8a768f9351f9e23b88b0966be89f648f490410501ba55d3"
   license "MIT"
 
   depends_on "python@3.11"

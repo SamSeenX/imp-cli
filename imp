@@ -5,6 +5,7 @@ import argparse
 import shutil
 import time
 from PIL import Image
+import warnings
 
 # Rich imports
 from rich.console import Console
@@ -93,9 +94,17 @@ def simulate_compression(file_path, args):
         original_size = os.path.getsize(file_path)
         
         # Open image to get dimensions and estimate size
-        with Image.open(file_path) as img:
-            width, height = img.size
-            new_width, new_height = width, height
+        # Suppress decompression bomb warning to handle it manually
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', Image.DecompressionBombWarning)
+            with Image.open(file_path) as img:
+                width, height = img.size
+                
+                # Check for decompression bomb risk
+                if Image.MAX_IMAGE_PIXELS and (width * height) > Image.MAX_IMAGE_PIXELS:
+                     return False, 0, 0, os.path.basename(file_path), f"Skipped: Image too large ({width}x{height} pixels)"
+
+                new_width, new_height = width, height
             
             # Calculate new dimensions if resize is requested
             if args.resize:
@@ -161,32 +170,39 @@ def compress_image(file_path, args, base_dir=None):
         original_size = os.path.getsize(file_path)
 
         # Open image and process in memory
-        with Image.open(file_path) as img:
-            # Handle RGBA to RGB conversion for JPEG
-            if output_ext in ['.jpg', '.jpeg'] and img.mode == 'RGBA':
-                img = img.convert('RGB')
+        # Suppress decompression bomb warning to handle it manually
+        with warnings.catch_warnings():
+            warnings.simplefilter('ignore', Image.DecompressionBombWarning)
+            with Image.open(file_path) as img:
+                # Check for decompression bomb risk
+                if Image.MAX_IMAGE_PIXELS and (img.size[0] * img.size[1]) > Image.MAX_IMAGE_PIXELS:
+                     return False, 0, 0, f"{os.path.basename(file_path)}: Image too large ({img.size[0]}x{img.size[1]} pixels) - skipped safely"
 
-            # Resize if requested
-            if args.resize:
-                max_dim = args.resize
-                width, height = img.size
-                if width > max_dim or height > max_dim:
-                    ratio = min(max_dim / width, max_dim / height)
-                    new_size = (int(width * ratio), int(height * ratio))
-                    img = img.resize(new_size, Image.Resampling.LANCZOS)
+                # Handle RGBA to RGB conversion for JPEG
+                if output_ext in ['.jpg', '.jpeg'] and img.mode == 'RGBA':
+                    img = img.convert('RGB')
 
-            # Compression settings
-            save_args = {}
-            if save_format == 'WEBP':
-                save_args = {'quality': args.quality, 'method': 6}
-            elif output_ext in ['.jpg', '.jpeg']:
-                save_args = {'quality': args.quality, 'optimize': True, 'progressive': True}
-            elif output_ext == '.png':
-                save_args = {'optimize': True}
+                # Resize if requested
+                if args.resize:
+                    max_dim = args.resize
+                    width, height = img.size
+                    if width > max_dim or height > max_dim:
+                        ratio = min(max_dim / width, max_dim / height)
+                        new_size = (int(width * ratio), int(height * ratio))
+                        img = img.resize(new_size, Image.Resampling.LANCZOS)
 
-            # Save to a temporary file first to avoid overwriting/data loss issues during save
-            temp_output_path = os.path.join(directory, f".tmp_{output_filename}")
-            img.save(temp_output_path, format=save_format, **save_args)
+                # Compression settings
+                save_args = {}
+                if save_format == 'WEBP':
+                    save_args = {'quality': args.quality, 'method': 6}
+                elif output_ext in ['.jpg', '.jpeg']:
+                    save_args = {'quality': args.quality, 'optimize': True, 'progressive': True}
+                elif output_ext == '.png':
+                    save_args = {'optimize': True}
+
+                # Save to a temporary file first to avoid overwriting/data loss issues during save
+                temp_output_path = os.path.join(directory, f".tmp_{output_filename}")
+                img.save(temp_output_path, format=save_format, **save_args)
 
         # Calculate compressed size from temp file
         compressed_size = os.path.getsize(temp_output_path)

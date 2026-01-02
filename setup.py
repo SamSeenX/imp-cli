@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="imp-cli",
-    version="1.0.1",
+    version="1.0.2",
     description="IMP - Image Optimizer CLI Tool",
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
